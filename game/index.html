@@ -1,19 +1,114 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
-<style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
-  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-</style>
+<title>SOLMAR HEAT — Open-World Crime in Solmar City</title>
+<link rel="stylesheet" href="./css/style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.min.js" } }
+</script>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
-<p id="status" role="status" aria-live="polite"></p>
+<div id="game-container"></div>
+
+<!-- In-game HUD -->
+<div id="hud" class="hidden">
+  <div id="objective-box">
+    <div id="mission-title">SOLMAR HEAT</div>
+    <div id="objective">Welcome to Solmar City.</div>
+  </div>
+  <div id="top-right">
+    <div id="cash">$0</div>
+    <div id="stars-row"><span id="wanted-label">HEAT</span><span id="stars">☆☆☆☆☆</span></div>
+  </div>
+  <div id="health-box">
+    <div id="health-bar"><div id="health-fill"></div></div>
+    <div id="health-text">100</div>
+  </div>
+  <div id="minimap-wrap">
+    <canvas id="minimap" width="200" height="200"></canvas>
+    <div id="speed-wrap"><span id="speed">0</span> km/h</div>
+  </div>
+  <div id="hint"></div>
+  <div id="subtitle"></div>
+  <div id="toast"></div>
+  <div id="crosshair">+</div>
+  <div id="damage-vignette"></div>
+</div>
+
+<!-- Start screen -->
+<div id="start-screen" class="screen">
+  <div class="screen-inner">
+    <h1 class="game-title">SOLMAR <span>HEAT</span></h1>
+    <p class="tagline">An open-world crime game in Solmar City.<br>Steal cars. Outrun the law. Pull the Meridian Job.</p>
+    <div class="menu-buttons">
+      <button id="btn-new" class="menu-btn primary">New Game</button>
+      <button id="btn-continue" class="menu-btn hidden">Continue</button>
+      <button id="btn-howto" class="menu-btn">How to Play</button>
+    </div>
+    <p class="foot">Keyboard + mouse. All city, characters, story, art and sound are original works made for this game.</p>
+  </div>
+</div>
+
+<!-- How to play -->
+<div id="howto-screen" class="screen hidden">
+  <div class="screen-inner panel">
+    <h2>How to Play</h2>
+    <table class="controls">
+      <tr><td>W A S D / Arrows</td><td>Move on foot / drive</td></tr>
+      <tr><td>Mouse</td><td>Look around (click to lock the cursor)</td></tr>
+      <tr><td>Shift</td><td>Run</td></tr>
+      <tr><td>Space</td><td>Jump / handbrake in a car</td></tr>
+      <tr><td>E</td><td>Enter / exit a car</td></tr>
+      <tr><td>Left click</td><td>Shoot (on foot)</td></tr>
+      <tr><td>H</td><td>Horn</td></tr>
+      <tr><td>M</td><td>Mute sound</td></tr>
+      <tr><td>Esc / P</td><td>Pause</td></tr>
+    </table>
+    <p class="howto-text">Follow the yellow marker to your next objective. Stealing cars, hitting
+    people and shooting raise your HEAT — the police will come for you. Lose them, or visit
+    <b>Lucky's Auto Paint</b> (green $ on the map) to clear your wanted level for $150.
+    Your progress saves automatically after every mission.</p>
+    <button id="btn-howto-close" class="menu-btn primary">Back</button>
+  </div>
+</div>
+
+<!-- Pause -->
+<div id="pause-screen" class="screen hidden">
+  <div class="screen-inner panel">
+    <h2>Paused</h2>
+    <div class="menu-buttons">
+      <button id="btn-resume" class="menu-btn primary">Resume</button>
+      <button id="btn-save" class="menu-btn">Save Game</button>
+      <button id="btn-mute" class="menu-btn">Mute: Off</button>
+      <button id="btn-restart" class="menu-btn">Restart Run</button>
+      <button id="btn-quit" class="menu-btn">Quit to Title</button>
+    </div>
+    <p class="foot">WASD move/drive &nbsp;·&nbsp; E enter car &nbsp;·&nbsp; Click shoot &nbsp;·&nbsp; Space jump/brake</p>
+  </div>
+</div>
+
+<!-- Busted -->
+<div id="busted-screen" class="screen hidden">
+  <div class="screen-inner panel">
+    <h2 class="alert-title">BUSTED</h2>
+    <p>The Solmar City police caught up with you.</p>
+    <p class="penalty">Bail: $200 — the cops confiscate it from your cash.</p>
+    <button id="btn-busted" class="menu-btn primary">Pay Bail &amp; Continue</button>
+  </div>
+</div>
+
+<!-- Hospitalized -->
+<div id="dead-screen" class="screen hidden">
+  <div class="screen-inner panel">
+    <h2 class="alert-title">HOSPITALIZED</h2>
+    <p>Mara wakes up in Solmar General with a hefty medical bill.</p>
+    <p class="penalty">Medical bill: 10% of your cash.</p>
+    <button id="btn-respawn" class="menu-btn primary">Leave Hospital</button>
+  </div>
+</div>
+
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

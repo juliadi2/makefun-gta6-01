@@ -1,53 +1,99 @@
-// Keyboard and pointer input. Held keys give a steering direction; one-shot presses (start or
-// restart, pause) are queued as bit flags and taken once by the loop, so a press between two
-// frames is never lost and never counted twice.
+// Input state: keyboard set, mouse deltas, edge-triggered key presses.
+// Written for SOLMAR HEAT. No dependencies.
 
-export const ACTION_CONFIRM = 1;
-export const ACTION_PAUSE = 2;
+/** Creates the input state. Attach with input.attach(element) to listen. */
+export function createInput() {
+  const keys = new Set();
+  const pressedQueue = new Set();
+  const mouse = { dx: 0, dy: 0, x: 0, y: 0 };
+  let mouseDown = false;
+  let locked = false;
 
-const LEFT = new Set(['ArrowLeft', 'KeyA']);
-const RIGHT = new Set(['ArrowRight', 'KeyD']);
-const CONFIRM = new Set(['Space', 'Enter']);
-const PAUSE = new Set(['KeyP', 'Escape']);
+  function onKeyDown(e) {
+    if (e.repeat) return;
+    keys.add(e.code);
+    pressedQueue.add(e.code);
+    if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+  }
+  function onKeyUp(e) { keys.delete(e.code); }
+  function onMouseMove(e) {
+    if (document.pointerLockElement) {
+      mouse.dx += e.movementX;
+      mouse.dy += e.movementY;
+    } else {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    }
+  }
+  function onMouseDown(e) { if (e.button === 0) mouseDown = true; }
+  function onMouseUp(e) { if (e.button === 0) mouseDown = false; }
+  function onLockChange() { locked = !!document.pointerLockElement; }
+  function onBlur() { keys.clear(); mouseDown = false; }
 
-export function createInput(target) {
-  let left = false;
-  let right = false;
-  let actions = 0;
+  const input = {
+    keys,
+    mouse,
+    get mouseDown() { return mouseDown; },
+    get locked() { return locked; },
 
-  window.addEventListener('keydown', (event) => {
-    if (LEFT.has(event.code)) left = true;
-    else if (RIGHT.has(event.code)) right = true;
-    else if (CONFIRM.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_CONFIRM;
-    } else if (PAUSE.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_PAUSE;
-    } else return;
-    event.preventDefault();
-  });
-  window.addEventListener('keyup', (event) => {
-    if (LEFT.has(event.code)) left = false;
-    else if (RIGHT.has(event.code)) right = false;
-  });
-  // A key released while the tab is hidden never sends keyup: let go of everything on blur.
-  window.addEventListener('blur', () => {
-    left = false;
-    right = false;
-  });
-  target.addEventListener('pointerdown', () => {
-    actions |= ACTION_CONFIRM;
-  });
-
-  return {
-    /** -1 for left, 1 for right, 0 for neither or both. */
-    direction() {
-      return (right ? 1 : 0) - (left ? 1 : 0);
+    /** Start listening on the given element (usually document.body). */
+    attach() {
+      window.addEventListener('keydown', onKeyDown);
+      window.addEventListener('keyup', onKeyUp);
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mousedown', onMouseDown);
+      window.addEventListener('mouseup', onMouseUp);
+      window.addEventListener('blur', onBlur);
+      document.addEventListener('pointerlockchange', onLockChange);
     },
-    /** The one-shot presses since the last call, as ACTION_* flags. */
-    takeActions() {
-      const taken = actions;
-      actions = 0;
-      return taken;
+
+    /** Movement axis from WASD/arrows: x = strafe right, y = forward. */
+    axis() {
+      let x = 0;
+      let y = 0;
+      if (keys.has('KeyA') || keys.has('ArrowLeft')) x -= 1;
+      if (keys.has('KeyD') || keys.has('ArrowRight')) x += 1;
+      if (keys.has('KeyW') || keys.has('ArrowUp')) y += 1;
+      if (keys.has('KeyS') || keys.has('ArrowDown')) y -= 1;
+      return { x, y };
     },
+
+    /** True once per physical press; consumed when read. */
+    pressed(code) {
+      if (pressedQueue.has(code)) {
+        pressedQueue.delete(code);
+        return true;
+      }
+      return false;
+    },
+
+    /** True while the key is held down. */
+    held(code) { return keys.has(code); },
+
+    /** Mouse movement since the last call; resets the accumulator. */
+    consumeMouse() {
+      const out = { dx: mouse.dx, dy: mouse.dy };
+      mouse.dx = 0;
+      mouse.dy = 0;
+      return out;
+    },
+
+    /** Request pointer lock on the canvas element. */
+    lockPointer(element) {
+      if (element && element.requestPointerLock) {
+        try {
+          const p = element.requestPointerLock();
+          if (p && p.catch) p.catch(() => {});
+        } catch (_e) { /* pointer lock unavailable; mouse still tracked */ }
+      }
+    },
+
+    unlockPointer() {
+      if (document.pointerLockElement) document.exitPointerLock();
+    },
+
+    /** Clear per-frame press state; call once per frame after systems read it. */
+    endFrame() { pressedQueue.clear(); },
   };
+  return input;
 }
